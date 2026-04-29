@@ -1,0 +1,16 @@
+project_id = "pmiresiihmsvvhycazwt"
+
+[functions.transcribe-speech]
+verify_jwt = true
+
+[functions.analyze-speech]
+verify_jwt = true
+
+[functions.mock-interview]
+verify_jwt = true
+
+[functions.group-discussion]
+verify_jwt = true
+
+[functions.text-to-speech]
+verify_jwt = true
