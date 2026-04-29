@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
 import { GlassCard } from "@/components/GlassCard";
 import { TrendingUp, Calendar, Award, Target } from "lucide-react";
@@ -20,59 +19,17 @@ const Progress = () => {
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
-    } else if (user && isSupabaseConfigured) {
+    } else if (user) {
       fetchProgress();
     }
   }, [user, loading, navigate]);
 
   const fetchProgress = async () => {
-    if (!user || !isSupabaseConfigured) return;
-
-    try {
-      // Fetch all practice sessions
-      const { data: sessions, error } = await supabase
-        .from('practice_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('completed_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching progress:', error);
-        return;
-      }
-
-      if (sessions) {
-        const totalSessions = sessions.length;
-        const avgScore = sessions.reduce((acc, s) => acc + (s.score || 0), 0) / totalSessions || 0;
-        
-        // Calculate this week's sessions
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        const thisWeekSessions = sessions.filter(
-          s => new Date(s.completed_at) > oneWeekAgo
-        ).length;
-
-        setStats({ totalSessions, avgScore: Math.round(avgScore), thisWeekSessions });
-
-        // Calculate weekly activity (last 7 days)
-        const activity = [0, 0, 0, 0, 0, 0, 0];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        sessions.forEach(session => {
-          const sessionDate = new Date(session.completed_at);
-          sessionDate.setHours(0, 0, 0, 0);
-          const daysAgo = Math.floor((today.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (daysAgo >= 0 && daysAgo < 7) {
-            activity[6 - daysAgo]++;
-          }
-        });
-        
-        setWeeklyActivity(activity);
-      }
-    } catch (error) {
-      console.error('Error fetching progress:', error);
-    }
+    if (!user) return;
+    
+    // For now, return default stats since Supabase is removed
+    setStats({ totalSessions: 0, avgScore: 0, thisWeekSessions: 0 });
+    setWeeklyActivity([0, 0, 0, 0, 0, 0, 0]);
   };
 
   if (loading || !user) {
@@ -91,13 +48,6 @@ const Progress = () => {
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6 animate-fade-in">
-        {!isSupabaseConfigured && (
-          <Alert className="bg-yellow-500/10 border-yellow-500/20">
-            <AlertDescription className="text-yellow-600 dark:text-yellow-400">
-              Supabase is not configured. Progress data will not be saved. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.
-            </AlertDescription>
-          </Alert>
-        )}
         {/* Overall Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <GlassCard hover={false} className="text-center space-y-2">

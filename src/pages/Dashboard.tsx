@@ -6,7 +6,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Mic, Briefcase, Presentation, Users, BookOpen, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 import { useToast } from "@/hooks/use-toast";
 
@@ -68,51 +67,17 @@ const Dashboard = () => {
     }
 
     // Fetch real stats
-    if (user && isSupabaseConfigured) {
+    if (user) {
       fetchStats();
     }
   }, [user]);
 
   const fetchStats = async () => {
-    if (!user || !isSupabaseConfigured) return;
-    try {
-      const { data: sessions, error } = await supabase
-        .from("practice_sessions")
-        .select("score, completed_at")
-        .eq("user_id", user.id)
-        .order("completed_at", { ascending: false });
-
-      if (error || !sessions) return;
-
-      const totalSessions = sessions.length;
-      const avgScore =
-        totalSessions > 0
-          ? Math.round(sessions.reduce((acc, s) => acc + (s.score || 0), 0) / totalSessions)
-          : 0;
-
-      // Calculate streak (consecutive days)
-      let streak = 0;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const dates = [...new Set(sessions.map((s) => {
-        const d = new Date(s.completed_at);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime();
-      }))].sort((a, b) => b - a);
-
-      for (let i = 0; i < dates.length; i++) {
-        const diff = (today.getTime() - dates[i]) / (1000 * 60 * 60 * 24);
-        if (diff <= i + 1) streak++;
-        else break;
-      }
-
-      setStats({ totalSessions, streak, avgScore });
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
+    // For now, return default stats since Supabase is removed
+    setStats({ totalSessions: 0, streak: 0, avgScore: 0 });
   };
 
-  const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
   const initial = displayName.charAt(0).toUpperCase();
 
   return (

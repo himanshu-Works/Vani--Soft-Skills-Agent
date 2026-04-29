@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { updateProfile } from "firebase/auth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,72 +22,21 @@ export const ProfileEditDialog = ({ open, onOpenChange }: ProfileEditDialogProps
 
   useEffect(() => {
     if (user && open) {
-      if (isSupabaseConfigured) {
-        fetchProfile();
-      } else {
-        // Set default values if Supabase is not configured
-        setDisplayName(user.email?.split('@')[0] || "");
-        setAvatarUrl("");
-      }
+      setDisplayName(user.displayName || user.email?.split('@')[0] || "");
+      setAvatarUrl(user.photoURL || "");
     }
   }, [user, open]);
-
-  const fetchProfile = async () => {
-    if (!user || !isSupabaseConfigured) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('display_name, avatar_url')
-        .eq('id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        toast({
-          title: "Error loading profile",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setDisplayName(data?.display_name || user.email?.split('@')[0] || "");
-      setAvatarUrl(data?.avatar_url || "");
-    } catch (error: any) {
-      console.error('Error fetching profile:', error);
-      setDisplayName(user.email?.split('@')[0] || "");
-      setAvatarUrl("");
-    }
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    if (!isSupabaseConfigured) {
-      toast({
-        title: "Cannot save profile",
-        description: "Supabase is not configured. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          display_name: displayName,
-          avatar_url: avatarUrl,
-          email: user.email,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'id'
-        });
-
-      if (error) throw error;
+      await updateProfile(user, {
+        displayName: displayName,
+        photoURL: avatarUrl,
+      });
 
       toast({ title: "Profile updated successfully!" });
       onOpenChange(false);
@@ -115,13 +64,6 @@ export const ProfileEditDialog = ({ open, onOpenChange }: ProfileEditDialogProps
         </DialogHeader>
 
         <form onSubmit={handleSave} className="space-y-4">
-          {!isSupabaseConfigured && (
-            <Alert className="bg-yellow-500/10 border-yellow-500/20">
-              <AlertDescription className="text-yellow-600 dark:text-yellow-400 text-sm">
-                Supabase is not configured. Changes will not be saved.
-              </AlertDescription>
-            </Alert>
-          )}
           <div className="space-y-2">
             <Label htmlFor="displayName">Display Name</Label>
             <Input
