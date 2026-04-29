@@ -58,11 +58,15 @@ export async function speakText(text: string, voiceId?: string): Promise<void> {
   try {
     const apiKey = import.meta.env.VITE_AZURE_API_KEY;
     const region = import.meta.env.VITE_AZURE_REGION || "centralindia";
+    
+    const sanitizedText = sanitizeTextForSpeech(text);
 
-    // If no Azure key, fall back to browser TTS
-    if (!apiKey) {
-      console.warn("Azure TTS API key not configured — using browser speech synthesis");
-      await speakWithBrowser(text);
+    // If no Azure key or text is empty after sanitization, fall back
+    if (!apiKey || !sanitizedText) {
+      if (!apiKey && sanitizedText) {
+        console.warn("Azure TTS API key not configured — using browser speech synthesis");
+        await speakWithBrowser(sanitizedText);
+      }
       return;
     }
 
@@ -75,7 +79,7 @@ export async function speakText(text: string, voiceId?: string): Promise<void> {
     const ssml = `<speak version='1.0' xml:lang='en-US'>
       <voice xml:lang='en-US' name='${voice.voiceName}'>
         <prosody pitch='${voice.pitch || "0%"}' rate='${voice.rate || "0%"}' volume='loud'>
-          ${escapeXml(text)}
+          ${escapeXml(sanitizedText)}
         </prosody>
       </voice>
     </speak>`;
@@ -97,7 +101,7 @@ export async function speakText(text: string, voiceId?: string): Promise<void> {
       const errorText = await res.text();
       console.error("Azure TTS Error:", res.status, errorText);
       console.warn("Azure TTS failed — falling back to browser speech synthesis");
-      await speakWithBrowser(text);
+      await speakWithBrowser(sanitizedText);
       return;
     }
 
@@ -105,7 +109,7 @@ export async function speakText(text: string, voiceId?: string): Promise<void> {
 
     if (blob.size === 0) {
       console.warn("Azure TTS returned empty blob — falling back to browser speech");
-      await speakWithBrowser(text);
+      await speakWithBrowser(sanitizedText);
       return;
     }
 
@@ -129,7 +133,10 @@ export async function speakText(text: string, voiceId?: string): Promise<void> {
     console.error("Error in speakText:", error);
     // Last resort fallback
     try {
-      await speakWithBrowser(text);
+      const fallbackText = sanitizeTextForSpeech(text);
+      if (fallbackText) {
+        await speakWithBrowser(fallbackText);
+      }
     } catch (fallbackError) {
       console.error("Browser TTS also failed:", fallbackError);
       throw error;
@@ -144,4 +151,18 @@ function escapeXml(text: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+function sanitizeTextForSpeech(text: string): string {
+  if (!text) return text;
+  return text
+    // Remove URLs
+    .replace(/https?:\/\/[^\s]+/g, '')
+    // Remove common markdown symbols (asterisks, underscores, hashtags, tildes, backticks, bullet points)
+    .replace(/[*_#~`>•-]/g, '')
+    // Remove emojis using unicode properties
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+    // Replace multiple spaces with a single space
+    .replace(/\s+/g, ' ')
+    .trim();
 }
