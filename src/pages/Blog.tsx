@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/GlassCard";
 import { BottomNav } from "@/components/BottomNav";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, Clock, X, Volume2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock, X, Volume2, Square } from "lucide-react";
 import { blogPosts, BlogPost } from "@/data/blogPosts";
-import { speakText } from "@/integrations/azureTts";
+import { speakText, stopSpeech } from "@/integrations/azureTts";
 import { useToast } from "@/hooks/use-toast";
 
 const Blog = () => {
@@ -36,6 +36,16 @@ const Blog = () => {
     } finally {
       setIsSpeaking(false);
     }
+  };
+
+  const handleStopSpeech = () => {
+    stopSpeech();
+    setIsSpeaking(false);
+  };
+
+  const handleCloseModal = () => {
+    handleStopSpeech();
+    setSelectedPost(null);
   };
 
   const formatContent = (content: string) => {
@@ -164,7 +174,7 @@ const Blog = () => {
       {selectedPost && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={() => setSelectedPost(null)}
+          onClick={handleCloseModal}
         >
           <div
             className="bg-card border border-border rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl animate-scale-in"
@@ -181,15 +191,25 @@ const Blog = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => speakArticle(selectedPost.content)}
-                  className={isSpeaking ? "text-primary" : ""}
-                >
-                  <Volume2 className={`w-5 h-5 ${isSpeaking ? "animate-pulse" : ""}`} />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => setSelectedPost(null)}>
+                {isSpeaking ? (
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={handleStopSpeech}
+                    title="Stop Reading"
+                  >
+                    <Square className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => speakArticle(selectedPost.content)}
+                  >
+                    <Volume2 className="w-5 h-5" />
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" onClick={handleCloseModal}>
                   <X className="w-5 h-5" />
                 </Button>
               </div>

@@ -195,7 +195,11 @@ Return ONLY a valid JSON array:
       resetRecording();
     } catch (error) {
       console.error("Error processing answer:", error);
-      toast({ title: "Error", description: "Failed to process answer", variant: "destructive" });
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? `Failed to process: ${error.message}` : "Failed to process answer", 
+        variant: "destructive" 
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -281,7 +285,7 @@ ${qaList}`;
       </div>
 
       {/* Camera PiP */}
-      {cameraEnabled && step === "interview" && (
+      {cameraEnabled && (
         <div className="fixed top-20 right-4 z-30">
           <div className="relative w-36 h-28 rounded-xl overflow-hidden border-2 border-primary shadow-xl">
             <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />

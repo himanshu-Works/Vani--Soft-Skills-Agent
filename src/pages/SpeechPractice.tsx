@@ -98,7 +98,7 @@ Speech transcript:
 ${transcriptText}`;
 
       const analysisRaw = await generateGeminiResponse(prompt);
-      let analysis: FeedbackData = { feedback: analysisRaw, score: 0, text: analysisRaw };
+      let analysis: FeedbackData = { score: 0, text: analysisRaw };
 
       try {
         const cleanJson = analysisRaw.replace(/```(?:json)?/g, "").replace(/```/g, "").trim();

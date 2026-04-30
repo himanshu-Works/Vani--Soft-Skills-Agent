@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { BottomNav } from "@/components/BottomNav";
 import { GlassCard } from "@/components/GlassCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -13,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 const Profile = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [profile, setProfile] = useState<any>(null);
 
@@ -70,17 +72,18 @@ const Profile = () => {
         {/* Settings Menu */}
         <GlassCard className="divide-y divide-border/50">
           {[
-            { icon: User, label: "Account Settings", desc: "Manage your personal information" },
+            { icon: User, label: "Account Settings", desc: "Manage your personal information", onClick: () => setEditDialogOpen(true) },
             { icon: Palette, label: "Theme", desc: "Dark mode toggle", component: <ThemeToggle /> },
-            { icon: Bell, label: "Notifications", desc: "Configure your alerts" },
-            { icon: Settings, label: "App Preferences", desc: "Customize your experience" },
-            { icon: HelpCircle, label: "Help & Support", desc: "Get assistance" },
+            { icon: Bell, label: "Notifications", desc: "Configure your alerts", onClick: () => toast({ title: "Notifications", description: "Notification settings coming soon!" }) },
+            { icon: Settings, label: "App Preferences", desc: "Customize your experience", onClick: () => toast({ title: "Preferences", description: "App preferences coming soon!" }) },
+            { icon: HelpCircle, label: "Help & Support", desc: "Get assistance", onClick: () => toast({ title: "Help & Support", description: "Contact us at support@vani-ai.com" }) },
           ].map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.label}
-                className="w-full flex items-center gap-4 p-4 first:rounded-t-2xl last:rounded-b-2xl"
+                className={`w-full flex items-center gap-4 p-4 first:rounded-t-2xl last:rounded-b-2xl ${item.onClick ? "cursor-pointer hover:bg-white/5" : ""}`}
+                onClick={item.onClick}
               >
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
                   <Icon className="w-5 h-5 text-primary" />

@@ -28,6 +28,19 @@ export function setSelectedVoice(voiceId: string) {
   localStorage.setItem("vani-voice-preference", voiceId);
 }
 
+let currentAudio: HTMLAudioElement | null = null;
+
+export function stopSpeech() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
 // Fallback TTS using browser's built-in speechSynthesis
 function speakWithBrowser(text: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -115,14 +128,17 @@ export async function speakText(text: string, voiceId?: string): Promise<void> {
 
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
+    currentAudio = audio;
 
     await new Promise<void>((resolve, reject) => {
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
+        currentAudio = null;
         resolve();
       };
       audio.onerror = (e) => {
         URL.revokeObjectURL(audioUrl);
+        currentAudio = null;
         reject(e);
       };
       audio.play().catch(reject);
