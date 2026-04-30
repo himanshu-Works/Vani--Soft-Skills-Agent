@@ -2,7 +2,7 @@
 
 ## Project Info
 
-**Deployment URL**: https://vani-ai-phi.vercel.app/
+**Deployment URL**: https://vani-soft-skills-agent.vercel.app/
 
 ## About
 
