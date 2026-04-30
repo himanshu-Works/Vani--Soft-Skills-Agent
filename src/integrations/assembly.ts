@@ -1,5 +1,5 @@
 export async function transcribeAudio(fileUrl: string) {
-  const apiKey = import.meta.env.VITE_ASSEMBLY_API_KEY;
+  const apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY;
 
   const res = await fetch("https://api.assemblyai.com/v2/transcript", {
     method: "POST",
@@ -15,7 +15,7 @@ export async function transcribeAudio(fileUrl: string) {
 }
 
 export async function getTranscriptText(transcriptId: string) {
-  const apiKey = import.meta.env.VITE_ASSEMBLY_API_KEY;
+  const apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY;
 
   const res = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
     headers: { authorization: apiKey },
@@ -27,7 +27,7 @@ export async function getTranscriptText(transcriptId: string) {
 
 // Higher-level helpers compatible with direct Blob upload and polling
 export async function uploadAudioToAssembly(file: Blob | File) {
-  const apiKey = import.meta.env.VITE_ASSEMBLY_API_KEY;
+  const apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY;
   const uploadUrl = import.meta.env.VITE_ASSEMBLY_UPLOAD_URL ?? 'https://api.assemblyai.com/v2/upload';
   const res = await fetch(uploadUrl, {
     method: 'POST',
@@ -40,7 +40,7 @@ export async function uploadAudioToAssembly(file: Blob | File) {
 }
 
 export async function createTranscript(uploadUrl: string, options: Record<string, unknown> = {}) {
-  const apiKey = import.meta.env.VITE_ASSEMBLY_API_KEY;
+  const apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY;
   const transcriptBase = import.meta.env.VITE_ASSEMBLY_TRANSCRIPT_URL ?? 'https://api.assemblyai.com/v2/transcript';
   const res = await fetch(transcriptBase, {
     method: 'POST',
@@ -58,7 +58,7 @@ export async function createTranscript(uploadUrl: string, options: Record<string
 }
 
 export async function pollTranscript(id: string, interval = 1500, timeout = 60000) {
-  const apiKey = import.meta.env.VITE_ASSEMBLY_API_KEY;
+  const apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY;
   const transcriptBase = import.meta.env.VITE_ASSEMBLY_TRANSCRIPT_URL ?? 'https://api.assemblyai.com/v2/transcript';
   const url = `${transcriptBase}/${id}`;
   const start = Date.now();
