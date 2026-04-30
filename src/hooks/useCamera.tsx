@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface CameraState {
   isActive: boolean;
@@ -15,6 +15,14 @@ export const useCamera = () => {
   });
   const capturedFrames = useRef<string[]>([]);
   const captureIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Attach stream to video element when stream or videoRef becomes available
+  useEffect(() => {
+    if (videoRef.current && cameraState.stream) {
+      videoRef.current.srcObject = cameraState.stream;
+      videoRef.current.play().catch(e => console.warn("Camera autoPlay prevented:", e));
+    }
+  }, [cameraState.stream, cameraState.isActive]);
 
   const startCamera = useCallback(async () => {
     try {
