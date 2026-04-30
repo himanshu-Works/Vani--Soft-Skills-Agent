@@ -185,14 +185,18 @@ Return ONLY a valid JSON array:
       const newAnswers = [...answers, transcriptText];
       setAnswers(newAnswers);
 
+      // ✅ Stop "Processing..." spinner and reset recording FIRST
+      setIsProcessing(false);
+      resetRecording();
+
       if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        await speakQuestion(questions[currentQuestionIndex + 1].question);
+        const nextIndex = currentQuestionIndex + 1;
+        setCurrentQuestionIndex(nextIndex);           // advance UI to next question
         toast({ title: "Next Question", description: "Listen and answer" });
+        await speakQuestion(questions[nextIndex].question); // then speak it
       } else {
         await getFeedback(newAnswers);
       }
-      resetRecording();
     } catch (error) {
       console.error("Error processing answer:", error);
       toast({
@@ -200,8 +204,8 @@ Return ONLY a valid JSON array:
         description: error instanceof Error ? error.message : "Failed to process answer",
         variant: "destructive",
       });
-    } finally {
       setIsProcessing(false);
+      resetRecording();
     }
   };
 
