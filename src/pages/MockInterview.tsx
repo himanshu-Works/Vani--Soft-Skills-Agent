@@ -195,10 +195,10 @@ Return ONLY a valid JSON array:
       resetRecording();
     } catch (error) {
       console.error("Error processing answer:", error);
-      toast({ 
-        title: "Error", 
-        description: error instanceof Error ? `Failed to process: ${error.message}` : "Failed to process answer", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to process answer",
+        variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
