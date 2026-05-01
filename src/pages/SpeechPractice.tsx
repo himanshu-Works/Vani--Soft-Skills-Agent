@@ -10,6 +10,8 @@ import { uploadAudioToAssembly, createTranscript, pollTranscript } from "@/integ
 import { generateGeminiResponse } from "@/integrations/gemini";
 import { speakText } from "@/integrations/azureTts";
 import { speechTopics } from "@/data/questionBanks";
+import { useAuth } from "@/hooks/useAuth";
+import { recordSession } from "@/integrations/progressService";
 
 interface FeedbackData {
   text: string;
@@ -27,6 +29,7 @@ interface FeedbackData {
 const SpeechPractice = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isRecording, audioBlob, startRecording, stopRecording, resetRecording } = useAudioRecorder();
   const { videoRef, cameraState, startCamera, stopCamera, getFramesForAnalysis, analyzeEmotions } = useCamera();
 
@@ -124,6 +127,16 @@ ${transcriptText}`;
 
       setFeedback(analysis);
       toast({ title: "Analysis Complete", description: `Score: ${analysis.score}/100` });
+
+      // Record session in Firestore
+      if (user) {
+        const today = new Date().toISOString().split('T')[0];
+        recordSession(user.uid, user.displayName || user.email?.split('@')[0] || 'User', {
+          type: 'speech',
+          score: analysis.score,
+          date: today,
+        }).catch(console.error);
+      }
 
       if (voiceFeedbackEnabled) {
         playVoiceFeedback(analysis.text);

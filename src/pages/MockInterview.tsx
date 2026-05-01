@@ -14,10 +14,13 @@ import { generateGeminiResponse } from "@/integrations/gemini";
 import { speakText } from "@/integrations/azureTts";
 import { uploadAudioToAssembly, createTranscript, pollTranscript } from "@/integrations/assembly";
 import { jobRoles } from "@/data/questionBanks";
+import { useAuth } from "@/hooks/useAuth";
+import { recordSession } from "@/integrations/progressService";
 
 const MockInterview = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isRecording, audioBlob, startRecording, stopRecording, resetRecording } = useAudioRecorder();
   const { videoRef, cameraState, startCamera, stopCamera, getFramesForAnalysis, analyzeEmotions } = useCamera();
 
@@ -242,6 +245,18 @@ ${qaList}`;
       setStep("results");
       toast({ title: "Interview Complete", description: "Review your feedback" });
       await speakQuestion("Interview complete. Here is your performance summary.");
+
+      // Extract score from feedback text and record session
+      if (user) {
+        const scoreMatch = (feedbackText + cameraFeedback).match(/(\d{2,3})\s*\/\s*100/);
+        const score = scoreMatch ? Math.min(100, parseInt(scoreMatch[1])) : 70;
+        const today = new Date().toISOString().split('T')[0];
+        recordSession(user.uid, user.displayName || user.email?.split('@')[0] || 'User', {
+          type: 'interview',
+          score,
+          date: today,
+        }).catch(console.error);
+      }
     } catch (error) {
       console.error("Error getting feedback:", error);
       toast({ title: "Error", description: "Failed to generate feedback", variant: "destructive" });
