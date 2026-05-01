@@ -9,6 +9,8 @@ import { generateGeminiResponse } from "@/integrations/gemini";
 import { speakText } from "@/integrations/azureTts";
 import { uploadAudioToAssembly, createTranscript, pollTranscript } from "@/integrations/assembly";
 import { gdTopics } from "@/data/questionBanks";
+import { useAuth } from "@/hooks/useAuth";
+import { recordSession } from "@/integrations/progressService";
 
 interface Message {
   role: string;
@@ -119,6 +121,7 @@ const GDRoom = ({
 const GroupDiscussion = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isRecording, audioBlob, startRecording, stopRecording, resetRecording } = useAudioRecorder();
   const [step, setStep] = useState<"setup" | "discussion" | "results">("setup");
   const [config, setConfig] = useState({ participants: 3, aggression: "balanced", topic: "" });
@@ -255,6 +258,17 @@ ${conversationText}`;
       setStep("results");
       toast({ title: "Discussion Complete", description: "Review your feedback" });
       await speakMessage("Group discussion complete. Here is your performance feedback.");
+
+      if (user) {
+        const scoreMatch = feedbackText.match(/\*\*Participation Score:\*\*\s*\[?(\d{2,3})\s*\/\s*100\]?/i);
+        const score = scoreMatch ? Math.min(100, parseInt(scoreMatch[1])) : 70;
+        const today = new Date().toISOString().split('T')[0];
+        recordSession(user.uid, user.displayName || user.email?.split('@')[0] || 'User', {
+          type: 'group',
+          score,
+          date: today,
+        }).catch(console.error);
+      }
     } catch (error) {
       console.error("Error getting feedback:", error);
       toast({ title: "Error", description: "Failed to generate feedback", variant: "destructive" });

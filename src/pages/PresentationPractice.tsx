@@ -11,6 +11,8 @@ import { uploadAudioToAssembly, createTranscript, pollTranscript } from "@/integ
 import { generateGeminiResponse } from "@/integrations/gemini";
 import { speakText } from "@/integrations/azureTts";
 import { presentationTopics } from "@/data/questionBanks";
+import { useAuth } from "@/hooks/useAuth";
+import { recordSession } from "@/integrations/progressService";
 
 // Placeholder slide content to show when no file is uploaded
 const generateSlideContent = (index: number, topic: string) => {
@@ -31,6 +33,7 @@ const generateSlideContent = (index: number, topic: string) => {
 const PresentationPractice = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isRecording, audioBlob, startRecording, stopRecording, resetRecording } = useAudioRecorder();
 
   const [step, setStep] = useState<"upload" | "presenting" | "results">("upload");
@@ -116,6 +119,17 @@ ${transcriptText || "(No speech detected — please ensure your microphone is wo
       setFeedback(analysisText);
       setStep("results");
       toast({ title: "Analysis Complete", description: "Review your presentation feedback" });
+
+      if (user) {
+        const scoreMatch = analysisText.match(/\*\*Overall Score:\*\*\s*\[?(\d{2,3})\s*\/\s*100\]?/i);
+        const score = scoreMatch ? Math.min(100, parseInt(scoreMatch[1])) : 70;
+        const today = new Date().toISOString().split('T')[0];
+        recordSession(user.uid, user.displayName || user.email?.split('@')[0] || 'User', {
+          type: 'presentation',
+          score,
+          date: today,
+        }).catch(console.error);
+      }
 
       if (voiceFeedbackEnabled) {
         await speakText("Presentation analysis complete. Here are your key insights.");
