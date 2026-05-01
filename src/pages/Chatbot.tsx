@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/GlassCard";
 import { BottomNav } from "@/components/BottomNav";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, Mic, Volume2, BookOpen, Sparkles } from "lucide-react";
+import { ArrowLeft, Send, Volume2, BookOpen, Sparkles, Mic, MicOff, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateGeminiResponse } from "@/integrations/gemini";
 import { speakText } from "@/integrations/azureTts";
@@ -14,6 +14,8 @@ interface Message {
   content: string;
   timestamp: Date;
 }
+
+type RecordingState = "idle" | "recording" | "processing";
 
 const quickQuestions = [
   "What are the 12 tenses in English?",
@@ -59,20 +61,157 @@ const Chatbot = () => {
       id: "welcome",
       role: "ai",
       content:
-        "Hello! 👋 I'm your **English Language Expert**. I can help you with grammar, vocabulary, pronunciation, writing, idioms, and everything else about the English language.\n\nWhat would you like to learn today? You can ask me anything about English!",
+        "Hello! 👋 I'm your **English Language Expert**. I can help you with grammar, vocabulary, pronunciation, writing, idioms, and everything else about the English language.\n\nWhat would you like to learn today? You can ask me anything about English — by typing or using the 🎤 voice button!",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [recordingState, setRecordingState] = useState<RecordingState>("idle");
+  const [transcript, setTranscript] = useState("");
+  const [recordingTime, setRecordingTime] = useState(0);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      stopRecording();
+    };
+  }, []);
+
+  // ─── Speech Recognition ──────────────────────────────────────────────────
+  const isSpeechSupported =
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  const startRecording = useCallback(() => {
+    if (!isSpeechSupported) {
+      toast({
+        title: "Voice not supported",
+        description: "Your browser doesn't support voice input. Try Chrome or Edge.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
+
+    let finalTranscript = "";
+
+    recognition.onstart = () => {
+      setRecordingState("recording");
+      setTranscript("");
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => {
+        setRecordingTime((t) => t + 1);
+      }, 1000);
+    };
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript + " ";
+        } else {
+          interim += result[0].transcript;
+        }
+      }
+      setTranscript((finalTranscript + interim).trim());
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      if (event.error === "no-speech") {
+        toast({ title: "No speech detected", description: "Please speak clearly into your microphone." });
+      } else if (event.error === "not-allowed") {
+        toast({
+          title: "Microphone access denied",
+          description: "Please allow microphone access and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Voice error", description: `Error: ${event.error}`, variant: "destructive" });
+      }
+      stopRecording();
+    };
+
+    recognition.onend = () => {
+      if (recognitionRef.current) {
+        // Recognition ended but we didn't stop it — auto-restart
+        // (This handles Android/browser timeouts)
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [isSpeechSupported, toast]);
+
+  const stopRecording = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      recognitionRef.current = null;
+    }
+    setRecordingState("idle");
+    setRecordingTime(0);
+  }, []);
+
+  const stopAndSend = useCallback(() => {
+    // Capture current transcript before stopping
+    setTranscript((currentTranscript) => {
+      const text = currentTranscript.trim();
+      stopRecording();
+      if (text) {
+        // Small delay to let state settle
+        setTimeout(() => {
+          sendMessage(text);
+          setTranscript("");
+        }, 100);
+      } else {
+        toast({ title: "No speech detected", description: "Please try speaking again." });
+        setTranscript("");
+      }
+      return "";
+    });
+  }, [stopRecording, toast]);
+
+  const handleMicClick = () => {
+    if (recordingState === "idle") {
+      startRecording();
+    } else if (recordingState === "recording") {
+      stopAndSend();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  // ─── Messaging ────────────────────────────────────────────────────────────
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
     if (!messageText) return;
@@ -137,7 +276,6 @@ Please provide a helpful, clear response about the English language:`;
   };
 
   const formatMessage = (content: string) => {
-    // Simple markdown-like formatting
     return content
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
@@ -242,10 +380,58 @@ Please provide a helpful, clear response about the English language:`;
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Voice Recording Overlay */}
+      {recordingState === "recording" && (
+        <div className="max-w-4xl mx-auto w-full px-4 pb-2">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/30 animate-pulse-slow">
+            <div className="relative flex items-center justify-center">
+              <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+              <div className="absolute w-6 h-6 rounded-full bg-red-500/30 animate-ping" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-400">
+                🎤 Listening... {formatTime(recordingTime)}
+              </p>
+              {transcript && (
+                <p className="text-xs text-muted-foreground mt-0.5 italic truncate">
+                  "{transcript}"
+                </p>
+              )}
+            </div>
+            <button
+              onClick={stopAndSend}
+              className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 transition-colors flex items-center gap-1"
+            >
+              <Square className="w-3 h-3" /> Stop & Send
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="sticky bottom-20 bg-card/90 backdrop-blur-lg border-t border-border">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex gap-3 items-end">
+            {/* Mic Button */}
+            <button
+              id="voice-input-btn"
+              onClick={handleMicClick}
+              disabled={isLoading}
+              title={recordingState === "idle" ? "Start voice input" : "Stop & send"}
+              className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 shadow-sm ${
+                recordingState === "recording"
+                  ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                  : "bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary hover:bg-primary/5"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {recordingState === "recording" ? (
+                <MicOff className="w-5 h-5" />
+              ) : (
+                <Mic className="w-5 h-5" />
+              )}
+            </button>
+
+            {/* Text Input */}
             <div className="flex-1 relative">
               <textarea
                 ref={inputRef}
@@ -257,24 +443,31 @@ Please provide a helpful, clear response about the English language:`;
                     sendMessage();
                   }
                 }}
-                placeholder="Ask anything about English language..."
+                placeholder={
+                  recordingState === "recording"
+                    ? "Listening... speak now"
+                    : "Ask anything about English language..."
+                }
                 rows={1}
-                className="w-full px-4 py-3 rounded-xl border border-border bg-background/80 focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm text-foreground placeholder:text-muted-foreground transition-all"
+                disabled={recordingState === "recording"}
+                className="w-full px-4 py-3 rounded-xl border border-border bg-background/80 focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm text-foreground placeholder:text-muted-foreground transition-all disabled:opacity-60"
                 style={{ maxHeight: "120px" }}
               />
             </div>
+
+            {/* Send Button */}
             <Button
               variant="hero"
               size="icon"
               onClick={() => sendMessage()}
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || isLoading || recordingState === "recording"}
               className="rounded-xl h-12 w-12 flex-shrink-0"
             >
               <Send className="w-5 h-5" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            Press Enter to send • Shift+Enter for new line
+            Press Enter to send • Shift+Enter for new line • 🎤 for voice
           </p>
         </div>
       </div>

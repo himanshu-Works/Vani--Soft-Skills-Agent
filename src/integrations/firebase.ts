@@ -3,8 +3,8 @@ import {
   getAuth,
   Auth,
   GoogleAuthProvider,
-  connectAuthEmulator,
 } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 // Firebase config from environment variables
 const firebaseConfig = {
@@ -27,11 +27,13 @@ export const isFirebaseConfigured =
 // Initialize Firebase only once
 let app: FirebaseApp;
 let auth: Auth;
+let db: Firestore;
 let googleProvider: GoogleAuthProvider;
 
 if (isFirebaseConfigured) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
+  db = getFirestore(app);
   googleProvider = new GoogleAuthProvider();
   googleProvider.addScope('profile');
   googleProvider.addScope('email');
@@ -42,11 +44,10 @@ if (isFirebaseConfigured) {
     'Please create a .env file with your Firebase credentials.\n' +
     'See .env.example for the required variables.'
   );
-  // Create stub instances to avoid import errors
-  // These will fail gracefully when isFirebaseConfigured is checked first
   app = null as any;
   auth = null as any;
+  db = null as any;
   googleProvider = new GoogleAuthProvider();
 }
 
-export { app, auth, googleProvider };
+export { app, auth, db, googleProvider };

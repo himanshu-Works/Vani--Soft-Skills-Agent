@@ -6,36 +6,74 @@ import { BottomNav } from "@/components/BottomNav";
 import { GlassCard } from "@/components/GlassCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileEditDialog } from "@/components/ProfileEditDialog";
+import { NotificationsDialog } from "@/components/NotificationsDialog";
+import { AppPreferencesDialog } from "@/components/AppPreferencesDialog";
+import { HelpSupportDialog } from "@/components/HelpSupportDialog";
 import { Button } from "@/components/ui/button";
-import { User, Settings, Bell, HelpCircle, LogOut, Palette } from "lucide-react";
+import { User, Settings, Bell, HelpCircle, LogOut, Palette, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Profile = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/auth');
+      navigate("/auth");
     } else if (user) {
-      // Create profile from Firebase user data
       setProfile({
-        display_name: user.displayName || user.email?.split('@')[0] || 'User',
+        display_name: user.displayName || user.email?.split("@")[0] || "User",
         email: user.email,
-        avatar_url: user.photoURL || null
+        avatar_url: user.photoURL || null,
       });
     }
   }, [user, loading, navigate]);
 
-  if (loading || !user || !profile) {
-    return null;
-  }
+  if (loading || !user || !profile) return null;
 
-  const initials = profile.display_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U';
+  const initials =
+    profile.display_name?.charAt(0).toUpperCase() ||
+    user.email?.charAt(0).toUpperCase() ||
+    "U";
+
+  const menuItems = [
+    {
+      icon: User,
+      label: "Account Settings",
+      desc: "Manage your personal information",
+      onClick: () => setEditDialogOpen(true),
+    },
+    {
+      icon: Palette,
+      label: "Theme",
+      desc: "Dark / light mode toggle",
+      component: <ThemeToggle />,
+    },
+    {
+      icon: Bell,
+      label: "Notifications",
+      desc: "Configure your alerts",
+      onClick: () => setNotificationsOpen(true),
+    },
+    {
+      icon: Settings,
+      label: "App Preferences",
+      desc: "Customize your experience",
+      onClick: () => setPreferencesOpen(true),
+    },
+    {
+      icon: HelpCircle,
+      label: "Help & Support",
+      desc: "Get assistance",
+      onClick: () => setHelpOpen(true),
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background pb-24">
@@ -61,38 +99,44 @@ const Profile = () => {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-semibold text-foreground">{profile.display_name || 'VANI User'}</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              {profile.display_name || "VANI User"}
+            </h2>
             <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>
-          <Button variant="outline" className="mx-auto" onClick={() => setEditDialogOpen(true)}>
+          <Button
+            variant="outline"
+            className="mx-auto"
+            onClick={() => setEditDialogOpen(true)}
+          >
             Edit Profile
           </Button>
         </GlassCard>
 
         {/* Settings Menu */}
-        <GlassCard className="divide-y divide-border/50">
-          {[
-            { icon: User, label: "Account Settings", desc: "Manage your personal information", onClick: () => setEditDialogOpen(true) },
-            { icon: Palette, label: "Theme", desc: "Dark mode toggle", component: <ThemeToggle /> },
-            { icon: Bell, label: "Notifications", desc: "Configure your alerts", onClick: () => toast({ title: "Notifications", description: "Notification settings coming soon!" }) },
-            { icon: Settings, label: "App Preferences", desc: "Customize your experience", onClick: () => toast({ title: "Preferences", description: "App preferences coming soon!" }) },
-            { icon: HelpCircle, label: "Help & Support", desc: "Get assistance", onClick: () => toast({ title: "Help & Support", description: "Contact us at support@vani-ai.com" }) },
-          ].map((item) => {
+        <GlassCard className="divide-y divide-border/50 p-0 overflow-hidden">
+          {menuItems.map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.label}
-                className={`w-full flex items-center gap-4 p-4 first:rounded-t-2xl last:rounded-b-2xl ${item.onClick ? "cursor-pointer hover:bg-white/5" : ""}`}
+                className={`w-full flex items-center gap-4 px-4 py-4 first:rounded-t-2xl last:rounded-b-2xl transition-all ${
+                  item.onClick ? "cursor-pointer hover:bg-white/5 active:bg-white/10" : ""
+                }`}
                 onClick={item.onClick}
               >
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
                   <Icon className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex-1 text-left">
                   <h3 className="font-medium text-foreground">{item.label}</h3>
                   <p className="text-xs text-muted-foreground">{item.desc}</p>
                 </div>
-                {'component' in item && item.component}
+                {"component" in item && item.component ? (
+                  item.component
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
               </div>
             );
           })}
@@ -105,7 +149,12 @@ const Profile = () => {
         </Button>
       </div>
 
+      {/* Dialogs */}
       <ProfileEditDialog open={editDialogOpen} onOpenChange={setEditDialogOpen} />
+      <NotificationsDialog open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+      <AppPreferencesDialog open={preferencesOpen} onOpenChange={setPreferencesOpen} />
+      <HelpSupportDialog open={helpOpen} onOpenChange={setHelpOpen} />
+
       <BottomNav />
     </div>
   );
